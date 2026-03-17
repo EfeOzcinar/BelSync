@@ -25,7 +25,7 @@ namespace BelSync
         private Button btnTheme, btnSettings, btnSavePreset, btnLoadPreset;
         private DataGridView dgv;
         private ProgressBar pgBar;
-        private List<DataGridViewRow> _allRows = new List<DataGridViewRow>();
+        private List<(string Key, string Value, RowStatus Status)> _allRows = new List<(string, string, RowStatus)>();
 
         // State
         private AppSettings _cfg;
@@ -154,7 +154,7 @@ namespace BelSync
             card2.Controls.AddRange(new Control[] { lblJson, tabJson });
 
             // ── ACTION ROW ────────────────────────────────────────────
-            var pnlAct = new Panel { Location = new Point(0, 210), Size = new Size(700, 38), BackColor = Color.Transparent, Anchor = AnchorStyles.Top | AnchorStyles.Left };
+            var pnlAct = new Panel { Location = new Point(0, 210), Size = new Size(1068, 46), BackColor = Color.Transparent, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
 
             btnPreview = Btn("🔍  " + Lang.Get("preview"), new Point(0, 5), 120, Theme.AccentBlue);
             btnSync = Btn("💾  " + Lang.Get("sync"), new Point(128, 5), 140, Theme.AccentGreen);
@@ -168,7 +168,8 @@ namespace BelSync
             btnClear.Click += BtnClear_Click;
             btnRollback.Click += BtnRollback_Click;
 
-            pgBar = new ProgressBar { Location = new Point(510, 15), Size = new Size(180, 6), Style = ProgressBarStyle.Marquee, Visible = false };
+            // Progress bar sits BELOW the buttons — never overlaps them
+            pgBar = new ProgressBar { Location = new Point(0, 38), Size = new Size(1068, 5), Style = ProgressBarStyle.Marquee, Visible = false, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
             pnlAct.Controls.AddRange(new Control[] { btnPreview, btnSync, btnClear, btnRollback, pgBar });
 
             // ── SUMMARY CARD ──────────────────────────────────────────
@@ -231,8 +232,11 @@ namespace BelSync
                 Size = new Size(200, 22),
                 BorderStyle = BorderStyle.FixedSingle,
                 Font = new Font("Segoe UI", 9f),
-                PlaceholderText = "Search..."
+                Text = "Search...",
+                ForeColor = Color.Gray
             };
+            txtSearch.GotFocus += (s, e) => { if (txtSearch.Text == "Search...") { txtSearch.Text = ""; txtSearch.ForeColor = Theme.TextPrimary; } };
+            txtSearch.LostFocus += (s, e) => { if (string.IsNullOrEmpty(txtSearch.Text)) { txtSearch.Text = "Search..."; txtSearch.ForeColor = Color.Gray; } };
             txtSearch.TextChanged += TxtSearch_Changed;
 
             pnlGridHeader.Controls.AddRange(new Control[] { lblGridTitle, lblRowCount, lblSearch, txtSearch });
@@ -280,19 +284,22 @@ namespace BelSync
         // ── Search filter ──────────────────────────────────────────────
         private void TxtSearch_Changed(object sender, EventArgs e)
         {
-            string q = txtSearch.Text.Trim().ToLower();
+            string q = (txtSearch.Text == "Search..." ? "" : txtSearch.Text.Trim()).ToLower();
             dgv.Rows.Clear();
             var filtered = string.IsNullOrEmpty(q)
                 ? _allRows
                 : _allRows.Where(r =>
-                    r.Cells["Key"].Value?.ToString().ToLower().Contains(q) == true ||
-                    r.Cells["Value"].Value?.ToString().ToLower().Contains(q) == true).ToList();
+                    r.Key.ToLower().Contains(q) ||
+                    r.Value.ToLower().Contains(q)).ToList();
 
-            foreach (var row in filtered)
+            foreach (var r in filtered)
             {
-                int idx = dgv.Rows.Add(row.Cells["Key"].Value, row.Cells["Value"].Value, row.Cells["Status"].Value);
-                dgv.Rows[idx].DefaultCellStyle.ForeColor = row.DefaultCellStyle.ForeColor;
-                dgv.Rows[idx].DefaultCellStyle.Font = row.DefaultCellStyle.Font;
+                string txt = r.Status == RowStatus.Inserted ? Lang.Get("statusInserted") : Lang.Get("statusSkipped");
+                int idx = dgv.Rows.Add(r.Key, r.Value, txt);
+                var row = dgv.Rows[idx];
+                row.DefaultCellStyle.ForeColor = r.Status == RowStatus.Inserted ? Theme.RowInserted : Theme.RowSkipped;
+                if (r.Status == RowStatus.Inserted)
+                    row.DefaultCellStyle.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
             }
             lblRowCount.Text = $"({filtered.Count} rows)";
         }
@@ -517,7 +524,7 @@ namespace BelSync
                 lblRowCount.Text = $"({r.Total} rows)";
                 RepositionGrid();
                 Status(string.Format(Lang.Get("previewDone"), r.Inserted, r.Skipped));
-                if (r.Inserted == 0 && r.Updated == 0)
+                if (r.Inserted == 0)
                     MessageBox.Show(Lang.Get("upToDate"), "BelSync", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex) { Status($"Error: {ex.Message}"); MessageBox.Show(ex.Message, Lang.Get("error"), MessageBoxButtons.OK, MessageBoxIcon.Error); }
@@ -599,7 +606,7 @@ namespace BelSync
             row.DefaultCellStyle.ForeColor = fg;
             if (status == RowStatus.Inserted)
                 row.DefaultCellStyle.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
-            _allRows.Add(row.Clone() as DataGridViewRow);
+            _allRows.Add((key, value, status));
         }
 
         private void UpdateSummary(SyncResult r)
@@ -636,10 +643,7 @@ namespace BelSync
                 BackColor = Theme.CardBg,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
-            p.Paint += (s, e) => {
-                using (var pen = new Pen(Theme.BorderColor, 1))
-                    e.Graphics.DrawRectangle(pen, 0, 0, p.Width - 1, p.Height - 1);
-            };
+
             return p;
         }
 
