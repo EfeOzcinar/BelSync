@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Xml.Linq;
 using Oracle.ManagedDataAccess.Client;
 using Newtonsoft.Json.Linq;
 
@@ -131,6 +133,28 @@ namespace BelSync
                     result.AddRange(FlattenJson(arr[i], $"{prefix}[{i}]"));
             else
                 result.Add((prefix, token.Type == JTokenType.Null ? "" : token.ToString()));
+            return result;
+        }
+
+        // ── Parse WebConfig appSettings ────────────────────────────────
+        public static List<(string Key, string Value)> ParseWebConfig(string filePath)
+        {
+            var result = new List<(string, string)>();
+            var doc = XDocument.Load(filePath);
+
+            // Only read <add key="..." value="..."/> inside <appSettings>
+            var nodes = doc.Descendants("appSettings").Elements("add")
+                           .Where(e => e.Attribute("key") != null)
+                           .ToList();
+
+            foreach (var node in nodes)
+            {
+                string key = node.Attribute("key").Value;
+                string value = node.Attribute("value") != null ? node.Attribute("value").Value : "";
+                if (!string.IsNullOrEmpty(key))
+                    result.Add((key, value));
+            }
+
             return result;
         }
 

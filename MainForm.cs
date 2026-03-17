@@ -20,7 +20,7 @@ namespace BelSync
         private ComboBox cboSchema, cboTable, cboKeyCol, cboLang;
         private TabControl tabJson;
         private TabPage tabFile, tabPaste;
-        private TextBox txtPath, txtPaste, txtSearch;
+        private TextBox txtPath, txtPaste, txtSearch, txtWebConfigPath;
         private Button btnBrowse, btnPreview, btnSync, btnClear, btnRollback;
         private Button btnTheme, btnSettings, btnSavePreset, btnLoadPreset;
         private DataGridView dgv;
@@ -135,14 +135,14 @@ namespace BelSync
             });
 
             // ── CARD 2: JSON Input ────────────────────────────────────
-            var card2 = Card(78, 122);
+            var card2 = Card(78, 148);
             var lblJson = FieldLbl("JSON DATA", new Point(14, 8));
 
-            tabJson = new TabControl { Location = new Point(8, 26), Size = new Size(1040, 86), Font = new Font("Segoe UI", 9f) };
+            tabJson = new TabControl { Location = new Point(8, 26), Size = new Size(1040, 110), Font = new Font("Segoe UI", 9f) };
 
             tabFile = new TabPage(Lang.Get("uploadFile"));
-            txtPath = new TextBox { Location = new Point(10, 14), Size = new Size(800, 26), ReadOnly = true, BorderStyle = BorderStyle.FixedSingle };
-            btnBrowse = Btn("📂  " + Lang.Get("browse"), new Point(820, 12), 110, Theme.AccentBlue);
+            txtPath = new TextBox { Location = new Point(10, 20), Size = new Size(800, 26), ReadOnly = true, BorderStyle = BorderStyle.FixedSingle };
+            btnBrowse = Btn("📂  " + Lang.Get("browse"), new Point(820, 18), 110, Theme.AccentBlue);
             btnBrowse.Click += BtnBrowse_Click;
             tabFile.Controls.AddRange(new Control[] { txtPath, btnBrowse });
 
@@ -150,11 +150,26 @@ namespace BelSync
             txtPaste = new TextBox { Location = new Point(6, 6), Size = new Size(1026, 68), Multiline = true, ScrollBars = ScrollBars.Vertical, Font = new Font("Consolas", 9f), BorderStyle = BorderStyle.None };
             tabPaste.Controls.Add(txtPaste);
 
-            tabJson.TabPages.AddRange(new TabPage[] { tabFile, tabPaste });
+            // WebConfig tab
+            var tabWebConfig = new TabPage("🔧 Web.config");
+            txtWebConfigPath = new TextBox { Location = new Point(10, 20), Size = new Size(800, 26), ReadOnly = true, BorderStyle = BorderStyle.FixedSingle };
+            var btnBrowseWebConfig = Btn("📂  Browse...", new Point(820, 18), 110, Theme.AccentBlue);
+            btnBrowseWebConfig.Click += BtnBrowseWebConfig_Click;
+            var lblWebConfigNote = new Label
+            {
+                Text = "Reads <appSettings> keys from Web.config — inserts missing keys only.",
+                Location = new Point(10, 48),
+                AutoSize = true,
+                Font = new Font("Segoe UI", 8.5f),
+                ForeColor = Theme.TextSecondary
+            };
+            tabWebConfig.Controls.AddRange(new Control[] { txtWebConfigPath, btnBrowseWebConfig, lblWebConfigNote });
+
+            tabJson.TabPages.AddRange(new TabPage[] { tabFile, tabPaste, tabWebConfig });
             card2.Controls.AddRange(new Control[] { lblJson, tabJson });
 
             // ── ACTION ROW ────────────────────────────────────────────
-            var pnlAct = new Panel { Location = new Point(0, 210), Size = new Size(1068, 46), BackColor = Color.Transparent, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
+            var pnlAct = new Panel { Location = new Point(0, 236), Size = new Size(1068, 46), BackColor = Color.Transparent, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
 
             btnPreview = Btn("🔍  " + Lang.Get("preview"), new Point(0, 5), 120, Theme.AccentBlue);
             btnSync = Btn("💾  " + Lang.Get("sync"), new Point(128, 5), 140, Theme.AccentGreen);
@@ -356,6 +371,8 @@ namespace BelSync
             tabJson.BackColor = Theme.CardBg;
             tabFile.BackColor = Theme.CardBg;
             tabPaste.BackColor = Theme.CardBg;
+            txtWebConfigPath.BackColor = Theme.InputBg;
+            txtWebConfigPath.ForeColor = Theme.TextPrimary;
 
             foreach (Control c in pnlBody.Controls)
                 if (c is Panel p) p.BackColor = Theme.CardBg;
@@ -372,7 +389,7 @@ namespace BelSync
             }
 
             btnTheme.Text = Theme.IsDark ? "☀  Light Mode" : "🌙  Dark Mode";
-            btnTheme.BackColor = Theme.IsDark ? Color.FromArgb(60, 90, 140) : Color.FromArgb(48, 62, 98);
+            btnTheme.BackColor = Theme.IsDark ? Color.FromArgb(130, 40, 75) : Color.FromArgb(175, 45, 85);
         }
 
         // ── Text refresh ───────────────────────────────────────────────
@@ -482,12 +499,34 @@ namespace BelSync
                 if (d.ShowDialog() == DialogResult.OK) txtPath.Text = d.FileName;
         }
 
-        private string GetJson()
+        private void BtnBrowseWebConfig_Click(object sender, EventArgs e)
         {
+            using (var d = new OpenFileDialog { Filter = "Web.config|Web.config|Config files (*.config)|*.config|All (*.*)|*.*" })
+                if (d.ShowDialog() == DialogResult.OK) txtWebConfigPath.Text = d.FileName;
+        }
+
+        private string GetJson() => null; // not used directly anymore
+
+        private List<(string Key, string Value)> GetPairs()
+        {
+            // WebConfig tab
+            if (tabJson.SelectedTab != null && tabJson.SelectedTab.Text.Contains("Web.config"))
+            {
+                if (string.IsNullOrEmpty(txtWebConfigPath.Text)) { Warn("Please select a Web.config file."); return null; }
+                try { return OracleHelper.ParseWebConfig(txtWebConfigPath.Text); }
+                catch (Exception ex) { Warn($"Failed to parse Web.config: {ex.Message}"); return null; }
+            }
+            // JSON file tab
             if (tabJson.SelectedTab == tabFile)
-            { if (string.IsNullOrEmpty(txtPath.Text)) { Warn(Lang.Get("noFile")); return null; } return File.ReadAllText(txtPath.Text); }
+            {
+                if (string.IsNullOrEmpty(txtPath.Text)) { Warn(Lang.Get("noFile")); return null; }
+                try { return OracleHelper.FlattenJson(JToken.Parse(File.ReadAllText(txtPath.Text))); }
+                catch (Exception ex) { Warn($"{Lang.Get("invalidJson")}: {ex.Message}"); return null; }
+            }
+            // Paste tab
             if (string.IsNullOrWhiteSpace(txtPaste.Text)) { Warn(Lang.Get("noJson")); return null; }
-            return txtPaste.Text.Trim();
+            try { return OracleHelper.FlattenJson(JToken.Parse(txtPaste.Text.Trim())); }
+            catch (Exception ex) { Warn($"{Lang.Get("invalidJson")}: {ex.Message}"); return null; }
         }
 
         private bool Check()
@@ -502,10 +541,7 @@ namespace BelSync
         private async void BtnPreview_Click(object sender, EventArgs e)
         {
             if (!Check()) return;
-            string json = GetJson(); if (json == null) return;
-            List<(string Key, string Value)> pairs;
-            try { pairs = OracleHelper.FlattenJson(JToken.Parse(json)); }
-            catch (Exception ex) { Warn($"{Lang.Get("invalidJson")}: {ex.Message}"); return; }
+            var pairs = GetPairs(); if (pairs == null) return;
             string schema = cboSchema.SelectedItem.ToString();
             string table = cboTable.SelectedItem.ToString();
             string keyCol = cboKeyCol.SelectedItem.ToString();
@@ -619,7 +655,7 @@ namespace BelSync
         // Reposition grid header and grid based on visible panels
         private void RepositionGrid()
         {
-            const int BASE = 256;
+            const int BASE = 282;
             const int GAP = 4;
             int y = BASE;
             pnlSummary.Top = y;
@@ -699,7 +735,7 @@ namespace BelSync
                 Text = text,
                 Location = loc,
                 Size = new Size(width, 30),
-                BackColor = Color.FromArgb(48, 62, 98),
+                BackColor = Color.FromArgb(175, 45, 85),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Font = new Font("Segoe UI", 8.5f),
@@ -707,7 +743,7 @@ namespace BelSync
                 UseVisualStyleBackColor = false
             };
             b.FlatAppearance.BorderSize = 0;
-            b.FlatAppearance.MouseOverBackColor = Color.FromArgb(65, 82, 128);
+            b.FlatAppearance.MouseOverBackColor = Color.FromArgb(155, 35, 70);
             return b;
         }
 

@@ -10,31 +10,31 @@ namespace BelSync
         public static bool IsDark => Current == AppTheme.Dark;
 
         // ── Backgrounds ────────────────────────────────────────────────
-        public static Color FormBg => IsDark ? Color.FromArgb(18, 18, 28) : Color.FromArgb(248, 249, 252);
-        public static Color TopBarBg => IsDark ? Color.FromArgb(26, 27, 46) : Color.FromArgb(30, 42, 68);
-        public static Color CardBg => IsDark ? Color.FromArgb(28, 29, 50) : Color.White;
-        public static Color InputBg => IsDark ? Color.FromArgb(36, 37, 60) : Color.FromArgb(252, 253, 255);
-        public static Color SummaryBg => IsDark ? Color.FromArgb(28, 29, 50) : Color.FromArgb(250, 252, 255);
-        public static Color RollbackBg => IsDark ? Color.FromArgb(50, 22, 28) : Color.FromArgb(255, 243, 245);
-        public static Color GridEven => IsDark ? Color.FromArgb(28, 29, 50) : Color.White;
-        public static Color GridOdd => IsDark ? Color.FromArgb(33, 34, 58) : Color.FromArgb(249, 251, 255);
-        public static Color GridSelect => IsDark ? Color.FromArgb(52, 100, 200) : Color.FromArgb(66, 133, 244);
-        public static Color BorderColor => IsDark ? Color.FromArgb(50, 52, 80) : Color.FromArgb(226, 230, 240);
-        public static Color HeaderBg => IsDark ? Color.FromArgb(22, 23, 42) : Color.FromArgb(44, 62, 80);
-        public static Color TabBg => IsDark ? Color.FromArgb(28, 29, 50) : Color.White;
+        public static Color FormBg => IsDark ? Color.FromArgb(32, 18, 28) : Color.FromArgb(255, 245, 248);
+        public static Color TopBarBg => IsDark ? Color.FromArgb(60, 20, 45) : Color.FromArgb(194, 48, 100);
+        public static Color CardBg => IsDark ? Color.FromArgb(50, 24, 40) : Color.White;
+        public static Color InputBg => IsDark ? Color.FromArgb(60, 30, 50) : Color.FromArgb(255, 250, 252);
+        public static Color SummaryBg => IsDark ? Color.FromArgb(50, 24, 40) : Color.FromArgb(255, 245, 250);
+        public static Color RollbackBg => IsDark ? Color.FromArgb(70, 20, 35) : Color.FromArgb(255, 235, 242);
+        public static Color GridEven => IsDark ? Color.FromArgb(50, 24, 40) : Color.White;
+        public static Color GridOdd => IsDark ? Color.FromArgb(58, 28, 46) : Color.FromArgb(255, 248, 252);
+        public static Color GridSelect => IsDark ? Color.FromArgb(180, 60, 110) : Color.FromArgb(220, 80, 130);
+        public static Color BorderColor => IsDark ? Color.FromArgb(100, 40, 70) : Color.FromArgb(248, 200, 218);
+        public static Color HeaderBg => IsDark ? Color.FromArgb(45, 15, 35) : Color.FromArgb(194, 48, 100);
+        public static Color TabBg => IsDark ? Color.FromArgb(50, 24, 40) : Color.White;
 
         // ── Text ───────────────────────────────────────────────────────
-        public static Color TextPrimary => IsDark ? Color.FromArgb(225, 226, 245) : Color.FromArgb(33, 37, 50);
-        public static Color TextSecondary => IsDark ? Color.FromArgb(130, 135, 170) : Color.FromArgb(108, 117, 140);
+        public static Color TextPrimary => IsDark ? Color.FromArgb(255, 220, 235) : Color.FromArgb(80, 20, 50);
+        public static Color TextSecondary => IsDark ? Color.FromArgb(200, 140, 170) : Color.FromArgb(180, 80, 120);
         public static Color TextHeader => Color.White;
-        public static Color TextRollback => IsDark ? Color.FromArgb(255, 140, 150) : Color.FromArgb(180, 30, 50);
+        public static Color TextRollback => IsDark ? Color.FromArgb(255, 150, 180) : Color.FromArgb(180, 30, 80);
 
         // ── Accents ────────────────────────────────────────────────────
-        public static Color AccentBlue => Color.FromArgb(66, 133, 244);
-        public static Color AccentGreen => Color.FromArgb(52, 199, 120);
+        public static Color AccentBlue => Color.FromArgb(220, 80, 130);  // pink primary
+        public static Color AccentGreen => Color.FromArgb(52, 199, 120);  // keep green for inserted
         public static Color AccentOrange => Color.FromArgb(255, 171, 64);
         public static Color AccentRed => Color.FromArgb(239, 83, 80);
-        public static Color AccentGray => IsDark ? Color.FromArgb(90, 95, 130) : Color.FromArgb(150, 160, 180);
+        public static Color AccentGray => IsDark ? Color.FromArgb(120, 70, 95) : Color.FromArgb(180, 120, 150);
 
         // ── Status row colors ──────────────────────────────────────────
         public static Color RowInserted => AccentGreen;
@@ -42,10 +42,10 @@ namespace BelSync
         public static Color RowSkipped => AccentGray;
 
         // ── Button hover ───────────────────────────────────────────────
-        public static Color BtnBlueHover => Color.FromArgb(50, 115, 220);
+        public static Color BtnBlueHover => Color.FromArgb(190, 55, 105);
         public static Color BtnGreenHover => Color.FromArgb(40, 175, 100);
         public static Color BtnRedHover => Color.FromArgb(210, 60, 60);
-        public static Color BtnGrayHover => Color.FromArgb(120, 128, 160);
-        public static Color TopBtnHover => Color.FromArgb(55, 70, 110);
+        public static Color BtnGrayHover => Color.FromArgb(150, 90, 120);
+        public static Color TopBtnHover => Color.FromArgb(220, 70, 120);
     }
 }
