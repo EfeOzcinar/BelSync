@@ -50,8 +50,8 @@ namespace BelSync
         private void Build()
         {
             this.Text = "BelSync";
-            this.Size = new Size(1100, 800);
-            this.MinimumSize = new Size(960, 680);
+            this.Size = new Size(1150, 800);
+            this.MinimumSize = new Size(1100, 680);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.Font = new Font("Segoe UI", 9f);
             this.AutoScaleMode = AutoScaleMode.Font;
@@ -82,7 +82,7 @@ namespace BelSync
             {
                 DropDownStyle = ComboBoxStyle.DropDownList,
                 FlatStyle = FlatStyle.Flat,
-                Location = new Point(560, 14),
+                Location = new Point(430, 14),
                 Size = new Size(115, 24),
                 Font = new Font("Segoe UI", 8.5f)
             };
@@ -93,12 +93,47 @@ namespace BelSync
                 _cfg.Language = Lang.Current.ToString(); _cfg.Save(); RefreshText();
             };
 
-            btnTheme = TopBtn("", new Point(686, 11), 130);
-            btnSettings = TopBtn("⚙  " + Lang.Get("settings"), new Point(826, 11), 130);
+            btnTheme = TopBtn("", 130);
+            var btnPalette = TopBtn("🎨  Colors", 120);
+            btnSettings = TopBtn("⚙  " + Lang.Get("settings"), 130);
+
             btnTheme.Click += (s, e) => { Theme.Current = Theme.IsDark ? AppTheme.Light : AppTheme.Dark; _cfg.Theme = Theme.IsDark ? "Dark" : "Light"; _cfg.Save(); ApplyTheme(); };
+            btnPalette.Click += (s, e) => OpenThemePicker();
             btnSettings.Click += (s, e) => OpenSettings();
 
-            pnlTop.Controls.AddRange(new Control[] { lblTitle, lblVer, cboLang, btnTheme, btnSettings });
+            // Use TableLayoutPanel — fills top bar, title on left, buttons on right
+            var tbl = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 1,
+                BackColor = Color.Transparent
+            };
+            tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40f)); // left: title
+            tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60f)); // right: buttons
+
+            // Left cell: title + version
+            var pnlLeft = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent };
+            pnlLeft.Controls.Add(lblTitle);
+            pnlLeft.Controls.Add(lblVer);
+
+            // Right cell: flow of controls
+            var pnlRight = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.RightToLeft,
+                WrapContents = false,
+                BackColor = Color.Transparent,
+                Padding = new Padding(0, 10, 8, 0)
+            };
+            pnlRight.Controls.Add(btnSettings);
+            pnlRight.Controls.Add(btnPalette);
+            pnlRight.Controls.Add(btnTheme);
+            pnlRight.Controls.Add(cboLang);
+
+            tbl.Controls.Add(pnlLeft, 0, 0);
+            tbl.Controls.Add(pnlRight, 1, 0);
+            pnlTop.Controls.Add(tbl);
 
             // ── STATUS BAR ────────────────────────────────────────────
             var pnlStatus = new Panel { Dock = DockStyle.Bottom, Height = 26 };
@@ -421,6 +456,18 @@ namespace BelSync
                 { _cfg = f.Settings; _cfg.Save(); OracleHelper.Configure(_cfg); LoadSchemasAsync(); }
         }
 
+        private void OpenThemePicker()
+        {
+            using (var f = new ThemePickerForm())
+            {
+                if (f.ShowDialog(this) == DialogResult.OK)
+                {
+                    Theme.ApplyCustom(f.SelectedFormBg, f.SelectedTopBar, f.SelectedAccent);
+                    ApplyTheme();
+                }
+            }
+        }
+
         private void BtnSavePreset_Click(object sender, EventArgs e)
         {
             if (cboSchema.SelectedIndex <= 0) { Warn(Lang.Get("noSchema")); return; }
@@ -728,13 +775,13 @@ namespace BelSync
             return b;
         }
 
-        private Button TopBtn(string text, Point loc, int width)
+        private Button TopBtn(string text, int width)
         {
             var b = new Button
             {
                 Text = text,
-                Location = loc,
                 Size = new Size(width, 30),
+                Margin = new Padding(2, 0, 2, 0),
                 BackColor = Color.FromArgb(175, 45, 85),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,

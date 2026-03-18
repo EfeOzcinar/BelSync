@@ -9,18 +9,35 @@ namespace BelSync
         public static AppTheme Current = AppTheme.Light;
         public static bool IsDark => Current == AppTheme.Dark;
 
+        // Custom color overrides — set by ThemePickerForm
+        public static Color? CustomFormBg = null;
+        public static Color? CustomTopBar = null;
+        public static Color? CustomAccent = null;
+
+        public static void ApplyCustom(Color formBg, Color topBar, Color accent)
+        {
+            CustomFormBg = formBg;
+            CustomTopBar = topBar;
+            CustomAccent = accent;
+        }
+
+        public static void ClearCustom()
+        {
+            CustomFormBg = CustomTopBar = CustomAccent = null;
+        }
+
         // ── Backgrounds ────────────────────────────────────────────────
-        public static Color FormBg => IsDark ? Color.FromArgb(32, 18, 28) : Color.FromArgb(255, 245, 248);
-        public static Color TopBarBg => IsDark ? Color.FromArgb(60, 20, 45) : Color.FromArgb(194, 48, 100);
+        public static Color FormBg => CustomFormBg.HasValue ? CustomFormBg.Value : (IsDark ? Color.FromArgb(32, 18, 28) : Color.FromArgb(255, 245, 248));
+        public static Color TopBarBg => CustomTopBar.HasValue ? CustomTopBar.Value : (IsDark ? Color.FromArgb(60, 20, 45) : Color.FromArgb(194, 48, 100));
         public static Color CardBg => IsDark ? Color.FromArgb(50, 24, 40) : Color.White;
         public static Color InputBg => IsDark ? Color.FromArgb(60, 30, 50) : Color.FromArgb(255, 250, 252);
         public static Color SummaryBg => IsDark ? Color.FromArgb(50, 24, 40) : Color.FromArgb(255, 245, 250);
         public static Color RollbackBg => IsDark ? Color.FromArgb(70, 20, 35) : Color.FromArgb(255, 235, 242);
         public static Color GridEven => IsDark ? Color.FromArgb(50, 24, 40) : Color.White;
         public static Color GridOdd => IsDark ? Color.FromArgb(58, 28, 46) : Color.FromArgb(255, 248, 252);
-        public static Color GridSelect => IsDark ? Color.FromArgb(180, 60, 110) : Color.FromArgb(220, 80, 130);
+        public static Color GridSelect => CustomAccent.HasValue ? CustomAccent.Value : (IsDark ? Color.FromArgb(180, 60, 110) : Color.FromArgb(220, 80, 130));
         public static Color BorderColor => IsDark ? Color.FromArgb(100, 40, 70) : Color.FromArgb(248, 200, 218);
-        public static Color HeaderBg => IsDark ? Color.FromArgb(45, 15, 35) : Color.FromArgb(194, 48, 100);
+        public static Color HeaderBg => CustomTopBar.HasValue ? CustomTopBar.Value : (IsDark ? Color.FromArgb(45, 15, 35) : Color.FromArgb(194, 48, 100));
         public static Color TabBg => IsDark ? Color.FromArgb(50, 24, 40) : Color.White;
 
         // ── Text ───────────────────────────────────────────────────────
@@ -30,7 +47,7 @@ namespace BelSync
         public static Color TextRollback => IsDark ? Color.FromArgb(255, 150, 180) : Color.FromArgb(180, 30, 80);
 
         // ── Accents ────────────────────────────────────────────────────
-        public static Color AccentBlue => Color.FromArgb(220, 80, 130);  // pink primary
+        public static Color AccentBlue => CustomAccent.HasValue ? CustomAccent.Value : Color.FromArgb(220, 80, 130);
         public static Color AccentGreen => Color.FromArgb(52, 199, 120);  // keep green for inserted
         public static Color AccentOrange => Color.FromArgb(255, 171, 64);
         public static Color AccentRed => Color.FromArgb(239, 83, 80);
