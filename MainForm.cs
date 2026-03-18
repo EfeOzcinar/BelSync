@@ -21,11 +21,11 @@ namespace BelSync
         private TabControl tabJson;
         private TabPage tabFile, tabPaste;
         private TextBox txtPath, txtPaste, txtSearch, txtWebConfigPath;
-        private Button btnBrowse, btnPreview, btnSync, btnClear, btnRollback;
+        private Button btnBrowse, btnPreview, btnSync, btnClear, btnRollback, btnRollbackSelected;
         private Button btnTheme, btnSettings, btnSavePreset, btnLoadPreset;
         private DataGridView dgv;
         private ProgressBar pgBar;
-        private List<(string Key, string Value, RowStatus Status)> _allRows = new List<(string, string, RowStatus)>();
+        private List<(string Key, string Value, RowStatus Status, long Oid)> _allRows = new List<(string, string, RowStatus, long)>();
 
         // State
         private AppSettings _cfg;
@@ -210,17 +210,20 @@ namespace BelSync
             btnSync = Btn("💾  " + Lang.Get("sync"), new Point(128, 5), 140, Theme.AccentGreen);
             btnClear = Btn("🗑  " + Lang.Get("clear"), new Point(276, 5), 90, Theme.AccentGray);
             btnRollback = Btn("↩  " + Lang.Get("rollback"), new Point(374, 5), 120, Theme.AccentRed);
+            btnRollbackSelected = Btn("↩  Rollback Selected", new Point(502, 5), 150, Theme.AccentRed);
             btnSync.Enabled = false;
             btnRollback.Enabled = false;
+            btnRollbackSelected.Enabled = false;
             btnRollback.Visible = true;
+            btnRollbackSelected.Visible = true;
             btnPreview.Click += BtnPreview_Click;
             btnSync.Click += BtnSync_Click;
             btnClear.Click += BtnClear_Click;
             btnRollback.Click += BtnRollback_Click;
+            btnRollbackSelected.Click += BtnRollbackSelected_Click;
 
-            // Progress bar sits BELOW the buttons — never overlaps them
             pgBar = new ProgressBar { Location = new Point(0, 38), Size = new Size(1068, 5), Style = ProgressBarStyle.Marquee, Visible = false, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
-            pnlAct.Controls.AddRange(new Control[] { btnPreview, btnSync, btnClear, btnRollback, pgBar });
+            pnlAct.Controls.AddRange(new Control[] { btnPreview, btnSync, btnClear, btnRollback, btnRollbackSelected, pgBar });
 
             // ── SUMMARY CARD ──────────────────────────────────────────
             pnlSummary = Card(276, 52);
@@ -316,9 +319,17 @@ namespace BelSync
                 ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.None,
                 RowTemplate = { Height = 28 },
                 ScrollBars = ScrollBars.Vertical,
-                MultiSelect = false
+                MultiSelect = true
             };
             BuildGrid();
+            dgv.SelectionChanged += (s, e) => {
+                // Enable Rollback Selected only if at least one inserted row is selected
+                bool anyInserted = false;
+                foreach (DataGridViewRow r in dgv.SelectedRows)
+                    if (r.Tag is long oid && oid > 0) { anyInserted = true; break; }
+                if (btnRollbackSelected != null)
+                    btnRollbackSelected.Enabled = anyInserted;
+            };
             pnlGrid.Controls.Add(dgv);
 
             pnlBody.Controls.AddRange(new Control[] {
@@ -347,6 +358,7 @@ namespace BelSync
                 string txt = r.Status == RowStatus.Inserted ? Lang.Get("statusInserted") : Lang.Get("statusSkipped");
                 int idx = dgv.Rows.Add(r.Key, r.Value, txt);
                 var row = dgv.Rows[idx];
+                row.Tag = r.Oid;
                 row.DefaultCellStyle.ForeColor = r.Status == RowStatus.Inserted ? Theme.RowInserted : Theme.RowSkipped;
                 if (r.Status == RowStatus.Inserted)
                     row.DefaultCellStyle.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
@@ -601,7 +613,7 @@ namespace BelSync
             {
                 var r = await Task.Run(() => OracleHelper.Sync(schema, table, keyCol, pairs, true));
                 _pairs = pairs;
-                foreach (var row in r.Rows) AddRow(row.Key, row.Value, row.Status);
+                foreach (var row in r.Rows) AddRow(row.Key, row.Value, row.Status, row.Oid);
                 UpdateSummary(r); pnlSummary.Visible = true;
                 btnSync.Enabled = r.Inserted > 0;
                 lblRowCount.Text = $"({r.Total} rows)";
@@ -628,7 +640,7 @@ namespace BelSync
             {
                 var r = await Task.Run(() => OracleHelper.Sync(schema, table, keyCol, _pairs, false));
                 dgv.Rows.Clear(); _allRows.Clear();
-                foreach (var row in r.Rows) AddRow(row.Key, row.Value, row.Status);
+                foreach (var row in r.Rows) AddRow(row.Key, row.Value, row.Status, row.Oid);
                 UpdateSummary(r); pnlSummary.Visible = true; btnSync.Enabled = false;
                 lblRowCount.Text = $"({r.Total} rows)";
                 if (r.Inserted > 0)
@@ -648,6 +660,44 @@ namespace BelSync
             }
             catch (Exception ex) { Status($"Error: {ex.Message}"); MessageBox.Show(ex.Message, Lang.Get("error"), MessageBoxButtons.OK, MessageBoxIcon.Error); }
             finally { Busy(false); Freeze(false); }
+        }
+
+        // ── Rollback Selected ─────────────────────────────────────────
+        private async void BtnRollbackSelected_Click(object sender, EventArgs e)
+        {
+            var oids = new List<long>();
+            var keys = new List<string>();
+            foreach (DataGridViewRow row in dgv.SelectedRows)
+                if (row.Tag is long oid && oid > 0)
+                {
+                    oids.Add(oid);
+                    keys.Add(row.Cells["Key"].Value?.ToString() ?? "");
+                }
+
+            if (oids.Count == 0) { Warn("Please select inserted rows to rollback."); return; }
+
+            string schema = _rbSchema ?? cboSchema.SelectedItem?.ToString() ?? "";
+            string table = _rbTable ?? cboTable.SelectedItem?.ToString() ?? "";
+
+            string keyList = string.Join("\n", keys.Take(5)) + (keys.Count > 5 ? $"\n...and {keys.Count - 5} more" : "");
+            if (MessageBox.Show(
+                $"Delete {oids.Count} selected record(s) from {schema}.{table}?\n\nKeys:\n{keyList}",
+                "Confirm Rollback Selected", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+
+            Busy(true); btnRollbackSelected.Enabled = false;
+            try
+            {
+                int n = await Task.Run(() => OracleHelper.RollbackSelected(schema, table, oids));
+                // Remove rolled back rows from grid
+                foreach (DataGridViewRow row in dgv.SelectedRows.Cast<DataGridViewRow>().ToList())
+                    dgv.Rows.Remove(row);
+                _allRows.RemoveAll(r => oids.Contains(r.Item4));
+                lblRowCount.Text = $"({dgv.Rows.Count} rows)";
+                Status($"Rollback done — {n} record(s) deleted.");
+                MessageBox.Show($"Rollback successful! {n} record(s) deleted.", "BelSync", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex) { Status($"Error: {ex.Message}"); MessageBox.Show(ex.Message, Lang.Get("error"), MessageBoxButtons.OK, MessageBoxIcon.Error); }
+            finally { Busy(false); }
         }
 
         // ── Rollback ───────────────────────────────────────────────────
@@ -672,24 +722,25 @@ namespace BelSync
         {
             dgv.Rows.Clear(); _allRows.Clear();
             pnlSummary.Visible = false;
-            btnSync.Enabled = btnRollback.Enabled = false;
+            btnSync.Enabled = btnRollback.Enabled = btnRollbackSelected.Enabled = false;
             _pairs = null; lblRowCount.Text = ""; txtSearch.Text = "";
             RepositionGrid();
             Status(Lang.Get("ready"));
         }
 
         // ── Helpers ────────────────────────────────────────────────────
-        private void AddRow(string key, string value, RowStatus status)
+        private void AddRow(string key, string value, RowStatus status, long oid = 0)
         {
             string txt = status == RowStatus.Inserted ? Lang.Get("statusInserted")
                        : Lang.Get("statusSkipped");
             int idx = dgv.Rows.Add(key, value, txt);
             var row = dgv.Rows[idx];
+            row.Tag = oid; // store OID in row tag
             Color fg = status == RowStatus.Inserted ? Theme.RowInserted : Theme.RowSkipped;
             row.DefaultCellStyle.ForeColor = fg;
             if (status == RowStatus.Inserted)
                 row.DefaultCellStyle.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
-            _allRows.Add((key, value, status));
+            _allRows.Add((key, value, status, oid));
         }
 
         private void UpdateSummary(SyncResult r)

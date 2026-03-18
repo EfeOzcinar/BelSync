@@ -195,7 +195,7 @@ namespace BelSync
                                 nextOid++;
                             }
                             result.Inserted++;
-                            result.Rows.Add(new SyncRow { Key = key, Value = value, Status = RowStatus.Inserted });
+                            result.Rows.Add(new SyncRow { Key = key, Value = value, Status = RowStatus.Inserted, Oid = preview ? 0 : nextOid - 1 });
                         }
                     }
                     tran?.Commit();
@@ -206,7 +206,30 @@ namespace BelSync
             return result;
         }
 
-        // ── Rollback ───────────────────────────────────────────────────
+        // ── Rollback selected OIDs ────────────────────────────────────────
+        public static int RollbackSelected(string schema, string table, List<long> oids)
+        {
+            if (oids == null || oids.Count == 0) return 0;
+            using (var conn = new OracleConnection(BuildConnectionString(schema)))
+            {
+                conn.Open();
+                using (var tran = conn.BeginTransaction())
+                    try
+                    {
+                        string inClause = string.Join(",", oids);
+                        using (var cmd = new OracleCommand(
+                            $"DELETE FROM {schema}.{table} WHERE OID IN ({inClause})", conn))
+                        {
+                            int deleted = cmd.ExecuteNonQuery();
+                            tran.Commit();
+                            return deleted;
+                        }
+                    }
+                    catch { tran.Rollback(); throw; }
+            }
+        }
+
+        // ── Rollback all (by OID range) ────────────────────────────────
         public static int Rollback(string schema, string table, long oidFrom, long oidTo)
         {
             using (var conn = new OracleConnection(BuildConnectionString(schema)))
@@ -357,6 +380,7 @@ namespace BelSync
         public string Key { get; set; }
         public string Value { get; set; }
         public RowStatus Status { get; set; }
+        public long Oid { get; set; } // OID assigned during insert (0 if skipped)
     }
 
     public class SyncResult
